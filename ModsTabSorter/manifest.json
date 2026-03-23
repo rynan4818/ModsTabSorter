@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/bsmg/BSIPA-MetadataFileSchema/master/Schema.json",
+  "id": "ModsTabSorter",
+  "name": "ModsTabSorter",
+  "author": "rynan4818",
+  "version": "0.0.1",
+  "description": "Lets you reorder the MODS tabs in the song selection play menu.",
+  "gameVersion": "1.21.0",
+  "dependsOn": {
+    "BSIPA": "^4.2.2",
+    "SiraUtil": "^3.0.6",
+    "BeatSaberMarkupLanguage": "^1.6.3"
+  }
+}
