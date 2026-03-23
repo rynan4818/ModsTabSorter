@@ -127,10 +127,10 @@ namespace ModsTabSorter.UI
 
             if (_tabList != null)
             {
-                _tabList.data = _tabItems;
-                _tabList.tableView?.ReloadData();
+                _tabList.Data = _tabItems;
+                _tabList.TableView?.ReloadData();
                 if (_selectedIndex >= 0)
-                    _tabList.tableView?.SelectCellWithIdx(_selectedIndex, false);
+                    _tabList.TableView?.SelectCellWithIdx(_selectedIndex, false);
             }
 
             StatusText = statusOverride ?? (

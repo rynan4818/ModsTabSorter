@@ -19,14 +19,14 @@ namespace ModsTabSorter.UI
         public void Initialize()
         {
             _menuButton = new MenuButton("Mods Tab Sorter", "Open the Mods Tab Sorter.", ShowFlowCoordinator);
-            MenuButtons.instance?.RegisterButton(_menuButton);
+            MenuButtons.Instance?.RegisterButton(_menuButton);
         }
 
         public void Dispose()
         {
             if (_menuButton != null)
             {
-                MenuButtons.instance?.UnregisterButton(_menuButton);
+                MenuButtons.Instance?.UnregisterButton(_menuButton);
                 _menuButton = null;
             }
         }

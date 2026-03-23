@@ -1,9 +1,9 @@
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.GameplaySetup;
+using BeatSaberMarkupLanguage.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using static BeatSaberMarkupLanguage.Components.CustomListTableData;
 
 namespace ModsTabSorter.Controllers
@@ -12,14 +12,14 @@ namespace ModsTabSorter.Controllers
     {
         public static IReadOnlyList<string> GetCurrentTabNames()
         {
-            return GetCurrentTabNames(GameplaySetup.instance);
+            return GetCurrentTabNames(null);
         }
 
         public static IReadOnlyList<string> GetCurrentTabNames(GameplaySetup gameplaySetup)
         {
             try
             {
-                List<GameplaySetupMenu> menus = GetMenus(gameplaySetup);
+                SortedList<GameplaySetupMenu> menus = GetMenus(gameplaySetup);
                 if (menus == null)
                     return Array.Empty<string>();
 
@@ -45,7 +45,7 @@ namespace ModsTabSorter.Controllers
 
         public static IReadOnlyList<string> GetEffectiveTabNames(GameplaySetup gameplaySetup = null)
         {
-            gameplaySetup = gameplaySetup ?? GameplaySetup.instance;
+            gameplaySetup = ResolveGameplaySetup(gameplaySetup);
             return BuildEffectiveOrder(GetCurrentTabNames(gameplaySetup), Configuration.PluginConfig.Instance?.OrderedTabs);
         }
 
@@ -58,8 +58,8 @@ namespace ModsTabSorter.Controllers
 
         public static bool ApplyConfiguredOrder(GameplaySetup gameplaySetup = null)
         {
-            gameplaySetup = gameplaySetup ?? GameplaySetup.instance;
-            List<GameplaySetupMenu> menus = GetMenus(gameplaySetup);
+            gameplaySetup = ResolveGameplaySetup(gameplaySetup);
+            SortedList<GameplaySetupMenu> menus = GetMenus(gameplaySetup);
             if (menus == null || menus.Count == 0)
                 return false;
 
@@ -71,24 +71,40 @@ namespace ModsTabSorter.Controllers
                 return false;
 
             List<string> effectiveOrder = BuildEffectiveOrder(currentNames, Configuration.PluginConfig.Instance?.OrderedTabs);
-            bool menusChanged = ReorderMenuEntries(menus, effectiveOrder);
-            bool tabsChanged = ReorderTabSelectorEntries(gameplaySetup, effectiveOrder);
+            bool menusChanged = ReorderMenuEntries(gameplaySetup, effectiveOrder);
 
-            if (menusChanged || tabsChanged)
+            if (menusChanged)
                 RefreshGameplaySetupUi(gameplaySetup);
 
             Plugin.Log?.Debug(
-                $"ApplyConfiguredOrder: current=[{string.Join(", ", currentNames)}], desired=[{string.Join(", ", effectiveOrder)}], menusChanged={menusChanged}, tabsChanged={tabsChanged}");
+                $"ApplyConfiguredOrder: current=[{string.Join(", ", currentNames)}], desired=[{string.Join(", ", effectiveOrder)}], menusChanged={menusChanged}");
 
-            return menusChanged || tabsChanged;
+            return menusChanged;
         }
 
-        private static List<GameplaySetupMenu> GetMenus(GameplaySetup gameplaySetup)
+        private static GameplaySetup ResolveGameplaySetup(GameplaySetup gameplaySetup)
         {
+            if (gameplaySetup != null)
+                return gameplaySetup;
+
+            try
+            {
+                return GameplaySetup.Instance;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.Warn($"Failed to resolve GameplaySetup instance: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static SortedList<GameplaySetupMenu> GetMenus(GameplaySetup gameplaySetup)
+        {
+            gameplaySetup = ResolveGameplaySetup(gameplaySetup);
             if (gameplaySetup == null)
                 return null;
 
-            return gameplaySetup._menus;
+            return gameplaySetup.menus;
         }
 
         private static string GetMenuName(GameplaySetupMenu menu)
@@ -96,15 +112,7 @@ namespace ModsTabSorter.Controllers
             if (menu == null)
                 return null;
 
-            return menu.name;
-        }
-
-        private static string GetTabName(Tab tab)
-        {
-            if (tab == null)
-                return null;
-
-            return tab.TabName;
+            return menu.Name;
         }
 
         private static List<string> BuildEffectiveOrder(IEnumerable<string> currentTabs, IEnumerable<string> savedTabs)
@@ -165,112 +173,108 @@ namespace ModsTabSorter.Controllers
             Plugin.Log?.Debug($"SaveOrder: [{string.Join(", ", sanitized)}]");
         }
 
-        private static bool ReorderMenuEntries(List<GameplaySetupMenu> menus, IReadOnlyList<string> desiredOrder)
+        private static bool ReorderMenuEntries(GameplaySetup gameplaySetup, IReadOnlyList<string> desiredOrder)
         {
+            SortedList<GameplaySetupMenu> menus = GetMenus(gameplaySetup);
+            if (menus == null || menus.Count == 0)
+                return false;
+
             List<GameplaySetupMenu> currentEntries = menus.ToList();
             List<string> currentOrder = currentEntries.Select(GetMenuName).Where(IsValidTabName).ToList();
             if (AreSameSequence(currentOrder, desiredOrder))
                 return false;
 
-            Dictionary<string, GameplaySetupMenu> byName = currentEntries
-                .Where(entry => IsValidTabName(GetMenuName(entry)))
-                .GroupBy(GetMenuName, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-
-            List<GameplaySetupMenu> reorderedEntries = new List<GameplaySetupMenu>(currentEntries.Count);
-            foreach (string tabName in desiredOrder)
-            {
-                if (byName.TryGetValue(tabName, out GameplaySetupMenu entry))
-                    reorderedEntries.Add(entry);
-            }
-
+            SortedList<GameplaySetupMenu> reorderedMenus = new SortedList<GameplaySetupMenu>(CreateMenuComparer(currentEntries, desiredOrder));
             foreach (GameplaySetupMenu entry in currentEntries)
             {
-                string tabName = GetMenuName(entry);
-                if (!IsValidTabName(tabName) || !desiredOrder.Contains(tabName))
-                    reorderedEntries.Add(entry);
+                reorderedMenus.Add(entry);
             }
 
-            menus.Clear();
-            foreach (GameplaySetupMenu entry in reorderedEntries)
-                menus.Add(entry);
-
+            gameplaySetup.menus = reorderedMenus;
             return true;
         }
 
-        private static bool ReorderTabSelectorEntries(GameplaySetup gameplaySetup, IReadOnlyList<string> desiredOrder)
+        private static IComparer<GameplaySetupMenu> CreateMenuComparer(
+            IReadOnlyList<GameplaySetupMenu> currentEntries,
+            IReadOnlyList<string> desiredOrder)
         {
-            if (gameplaySetup == null)
-                return false;
-
-            TabSelector selector = GetModsTabSelector(gameplaySetup);
-            if (selector == null)
-                return false;
-
-            List<Tab> tabs = selector.tabs;
-            if (tabs == null || tabs.Count == 0)
-                return false;
-
-            List<Tab> currentTabs = tabs.ToList();
-            List<string> currentOrder = currentTabs.Select(GetTabName).Where(IsValidTabName).ToList();
-            List<string> selectorOrder = BuildEffectiveOrder(currentOrder, desiredOrder);
-            if (AreSameSequence(currentOrder, selectorOrder))
-                return false;
-
-            Dictionary<string, Tab> byName = currentTabs
-                .Where(entry => IsValidTabName(GetTabName(entry)))
-                .GroupBy(GetTabName, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-
-            List<Tab> reorderedTabs = new List<Tab>(currentTabs.Count);
-            foreach (string tabName in selectorOrder)
+            Dictionary<string, int> desiredIndexLookup = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < desiredOrder.Count; i++)
             {
-                if (byName.TryGetValue(tabName, out Tab entry))
-                    reorderedTabs.Add(entry);
+                string tabName = desiredOrder[i];
+                if (IsValidTabName(tabName) && !desiredIndexLookup.ContainsKey(tabName))
+                {
+                    desiredIndexLookup.Add(tabName, i);
+                }
             }
 
-            foreach (Tab entry in currentTabs)
+            Dictionary<string, int> currentIndexLookup = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (int i = 0; i < currentEntries.Count; i++)
             {
-                string tabName = GetTabName(entry);
-                if (!IsValidTabName(tabName) || !selectorOrder.Contains(tabName))
-                    reorderedTabs.Add(entry);
+                string tabName = GetMenuName(currentEntries[i]);
+                if (IsValidTabName(tabName) && !currentIndexLookup.ContainsKey(tabName))
+                {
+                    currentIndexLookup.Add(tabName, i);
+                }
             }
 
-            tabs.Clear();
-            foreach (Tab entry in reorderedTabs)
-                tabs.Add(entry);
+            return Comparer<GameplaySetupMenu>.Create((left, right) =>
+            {
+                string leftName = GetMenuName(left);
+                string rightName = GetMenuName(right);
 
-            return true;
+                int leftDesiredIndex = GetOrderIndex(desiredIndexLookup, leftName);
+                int rightDesiredIndex = GetOrderIndex(desiredIndexLookup, rightName);
+                int comparison = leftDesiredIndex.CompareTo(rightDesiredIndex);
+                if (comparison != 0)
+                    return comparison;
+
+                int leftCurrentIndex = GetOrderIndex(currentIndexLookup, leftName);
+                int rightCurrentIndex = GetOrderIndex(currentIndexLookup, rightName);
+                comparison = leftCurrentIndex.CompareTo(rightCurrentIndex);
+                if (comparison != 0)
+                    return comparison;
+
+                return StringComparer.Ordinal.Compare(leftName, rightName);
+            });
+        }
+
+        private static int GetOrderIndex(IReadOnlyDictionary<string, int> lookup, string tabName)
+        {
+            if (lookup == null || !IsValidTabName(tabName))
+            {
+                return int.MaxValue;
+            }
+
+            int orderIndex;
+            if (lookup.TryGetValue(tabName, out orderIndex))
+            {
+                return orderIndex;
+            }
+
+            return int.MaxValue;
         }
 
         private static void RefreshGameplaySetupUi(GameplaySetup gameplaySetup)
         {
             try
             {
-                TabSelector selector = GetModsTabSelector(gameplaySetup);
-                selector?.Refresh();
-
-                CustomListTableData modsList = gameplaySetup?._modsList;
-                if (modsList?.tableView != null)
+                if (gameplaySetup?.rootObject != null)
                 {
-                    modsList.tableView.ReloadData();
+                    gameplaySetup.QueueRefreshView();
+                    return;
+                }
+
+                CustomListTableData modsList = gameplaySetup?.modsList;
+                if (modsList?.TableView != null)
+                {
+                    modsList.TableView.ReloadData();
                 }
             }
             catch (Exception ex)
             {
                 Plugin.Log?.Warn($"Failed to refresh gameplay setup UI after reordering: {ex.Message}");
             }
-        }
-
-        private static TabSelector GetModsTabSelector(GameplaySetup gameplaySetup)
-        {
-            Transform modsTab = gameplaySetup?._modsTab;
-            if (modsTab == null)
-                return null;
-
-            return modsTab
-                .GetComponentsInChildren<TabSelector>(true)
-                .FirstOrDefault(selector => string.Equals(selector.tabTag, "mod-tab", StringComparison.Ordinal));
         }
 
         private static bool AreSameSequence(IEnumerable<string> left, IEnumerable<string> right)
