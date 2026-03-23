@@ -3,7 +3,7 @@
   "id": "ModsTabSorter",
   "name": "ModsTabSorter",
   "author": "rynan4818",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Lets you reorder the MODS tabs in the song selection play menu.",
   "gameVersion": "1.21.0",
   "dependsOn": {
