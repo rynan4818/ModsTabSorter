@@ -4,6 +4,10 @@
 
 This Beat Saber plugin lets you change and save the display order of the entries inside the `MODS` tab on the left side of the song selection play menu.
 
+<img width="851" height="656" alt="image" src="https://github.com/user-attachments/assets/0a482bb4-6283-449c-8062-792e791291fd" />
+
+<img width="800" height="587" alt="image" src="https://github.com/user-attachments/assets/e86c3e62-6499-4e45-a59b-dee93259fc6e" />
+
 ## インストール (Installation)
 
 1. [リリースページ](https://github.com/rynan4818/ModsTabSorter/releases)から `ModsTabSorter` のリリースをダウンロードします。
@@ -57,17 +61,3 @@ This Beat Saber plugin lets you change and save the display order of the entries
 * 新しく追加された `MODS` タブがある場合は、保存済み順序を保ったまま一覧へ反映されます。
 
   If new `MODS` tabs were added, they will be reflected in the list while keeping your saved order.
-
-## 注意点 (Notes)
-
-* 並び替え対象は、譜面選択時のプレイメニュー左側にある `MODS` タブ内の項目です。
-
-  The reorder target is the set of entries inside the `MODS` tab on the left side of the song selection play menu.
-
-* Beat Saber 本体の標準タブや、BSML を使わずに作られた独自 UI には作用しません。
-
-  It does not affect Beat Saber’s built-in tabs or custom UIs that do not use BSML `GameplaySetup`.
-
-* Beat Saber や BSML のバージョン更新により、`GameplaySetup` の内部実装やライフサイクルが変わることがあります。その場合はプラグイン側の追従修正が必要になります。
-
-  Beat Saber or BSML updates may change the internal implementation or lifecycle of `GameplaySetup`, and the plugin may need to be updated accordingly.
