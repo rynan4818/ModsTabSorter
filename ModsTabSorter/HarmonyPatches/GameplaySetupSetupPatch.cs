@@ -4,7 +4,7 @@ using ModsTabSorter.Controllers;
 
 namespace ModsTabSorter.HarmonyPatches
 {
-    [HarmonyPatch(typeof(GameplaySetup), "Setup")]
+    [HarmonyPatch(typeof(GameplaySetup), "Initialize")]
     internal static class GameplaySetupSetupPatch
     {
         private static void Prefix(GameplaySetup __instance)
