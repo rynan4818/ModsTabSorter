@@ -1,19 +1,20 @@
 <bg xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='https://monkeymanboy.github.io/BSML-Docs/ https://raw.githubusercontent.com/monkeymanboy/BSML-Docs/gh-pages/BSMLSchema.xsd'>
-  <vertical child-control-width='true' spacing='3' pad='4'>
-    <text text='Select a Gameplay Setup tab and move it up or down to change the order.' align='Center' font-size='3.5' />
-    <horizontal spacing='4' child-control-width='false' child-expand-width='false'>
-      <vertical child-control-width='true' spacing='2'>
-        <page-button click-event='tab-list#PageUp' direction='Up' pref-width='72' pref-height='5' />
-        <list id='tab-list' data='tab-items' select-cell='tab-selected' list-style='Simple' list-width='72' visible-cells='8' show-scrollbar='true' stick-scrolling='true' />
-        <page-button click-event='tab-list#PageDown' direction='Down' pref-width='72' pref-height='5' />
-      </vertical>
-      <vertical child-control-width='true' spacing='2' pref-width='36'>
-        <button text='Move Up' on-click='move-up' interactable='~can-move-up' />
-        <button text='Move Down' on-click='move-down' interactable='~can-move-down' />
-        <button text='Reload' on-click='reload-tabs' />
-        <text text='~selected-tab-text' font-size='3' />
-      </vertical>
-    </horizontal>
-    <text text='~status-text' font-size='3' />
-  </vertical>
+    <vertical child-control-width='true'>
+      <horizontal spacing='2' child-control-width='false' child-expand-width='false'>
+        <vertical child-control-width='true'>
+          <page-button click-event='tab-list#PageUp' direction='Up' pref-width='72' pref-height='5' />
+          <list id='tab-list' data='tab-items' select-cell='tab-selected' list-style='Simple' list-width='72' visible-cells='8' show-scrollbar='true' stick-scrolling='true' />
+          <page-button click-event='tab-list#PageDown' direction='Down' pref-width='72' pref-height='5' />
+        </vertical>
+        <vertical child-control-width='true' pref-width='36'>
+          <button text='Move Up' on-click='move-up' interactable='~can-move-up' />
+          <button text='Move Down' on-click='move-down' interactable='~can-move-down' />
+          <button text='Reload' on-click='reload-tabs' />
+          <text text='~selected-tab-text' font-size='3' align='Center'/>
+        </vertical>
+      </horizontal>
+      <horizontal>
+        <text text='~status-text' font-size='3' align='Center'/>
+      </horizontal>
+    </vertical>
 </bg>

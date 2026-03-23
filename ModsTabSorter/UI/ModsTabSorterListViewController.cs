@@ -10,6 +10,7 @@ using static BeatSaberMarkupLanguage.Components.CustomListTableData;
 
 namespace ModsTabSorter.UI
 {
+    [HotReload]
     internal class ModsTabSorterListViewController : BSMLAutomaticViewController
     {
         private List<string> _tabNames = new List<string>();
