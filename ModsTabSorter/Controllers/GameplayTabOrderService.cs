@@ -1,10 +1,8 @@
 using BeatSaberMarkupLanguage.Components;
 using BeatSaberMarkupLanguage.GameplaySetup;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using static BeatSaberMarkupLanguage.Components.CustomListTableData;
 
@@ -12,15 +10,6 @@ namespace ModsTabSorter.Controllers
 {
     internal static class GameplayTabOrderService
     {
-        private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly FieldInfo MenusField = typeof(GameplaySetup).GetField("menus", InstanceFlags);
-        private static readonly FieldInfo ModsListField = typeof(GameplaySetup).GetField("modsList", InstanceFlags);
-        private static readonly FieldInfo ModsTabField = typeof(GameplaySetup).GetField("modsTab", InstanceFlags);
-        private static readonly FieldInfo TabsField = typeof(TabSelector).GetField("tabs", InstanceFlags);
-        private static readonly Type GameplaySetupMenuType = typeof(GameplaySetup).Assembly.GetType("BeatSaberMarkupLanguage.GameplaySetup.GameplaySetupMenu");
-        private static readonly FieldInfo GameplaySetupMenuNameField = GameplaySetupMenuType?.GetField("name", InstanceFlags);
-        private static readonly PropertyInfo TabNameProperty = typeof(Tab).GetProperty(nameof(Tab.TabName), InstanceFlags);
-
         public static IReadOnlyList<string> GetCurrentTabNames()
         {
             return GetCurrentTabNames(GameplaySetup.instance);
@@ -30,11 +19,11 @@ namespace ModsTabSorter.Controllers
         {
             try
             {
-                IList menus = GetMenus(gameplaySetup);
+                List<object> menus = GetMenus(gameplaySetup);
                 if (menus == null)
                     return Array.Empty<string>();
 
-                return menus.Cast<object>()
+                return menus
                     .Select(GetMenuName)
                     .Where(IsValidTabName)
                     .ToList();
@@ -70,11 +59,11 @@ namespace ModsTabSorter.Controllers
         public static bool ApplyConfiguredOrder(GameplaySetup gameplaySetup = null)
         {
             gameplaySetup = gameplaySetup ?? GameplaySetup.instance;
-            IList menus = GetMenus(gameplaySetup);
+            List<object> menus = GetMenus(gameplaySetup);
             if (menus == null || menus.Count == 0)
                 return false;
 
-            List<string> currentNames = menus.Cast<object>()
+            List<string> currentNames = menus
                 .Select(GetMenuName)
                 .Where(IsValidTabName)
                 .ToList();
@@ -94,28 +83,29 @@ namespace ModsTabSorter.Controllers
             return menusChanged || tabsChanged;
         }
 
-        private static IList GetMenus(GameplaySetup gameplaySetup)
+        private static List<object> GetMenus(GameplaySetup gameplaySetup)
         {
-            if (gameplaySetup == null || MenusField == null)
+            if (gameplaySetup == null)
                 return null;
 
-            return MenusField.GetValue(gameplaySetup) as IList;
+            return gameplaySetup.menus;
         }
 
         private static string GetMenuName(object menu)
         {
-            if (menu == null || GameplaySetupMenuNameField == null)
+            GameplaySetupMenu gameplaySetupMenu = menu as GameplaySetupMenu;
+            if (gameplaySetupMenu == null)
                 return null;
 
-            return GameplaySetupMenuNameField.GetValue(menu) as string;
+            return gameplaySetupMenu.name;
         }
 
-        private static string GetTabName(object tab)
+        private static string GetTabName(Tab tab)
         {
-            if (tab == null || TabNameProperty == null)
+            if (tab == null)
                 return null;
 
-            return TabNameProperty.GetValue(tab, null) as string;
+            return tab.TabName;
         }
 
         private static List<string> BuildEffectiveOrder(IEnumerable<string> currentTabs, IEnumerable<string> savedTabs)
@@ -176,9 +166,9 @@ namespace ModsTabSorter.Controllers
             Plugin.Log?.Debug($"SaveOrder: [{string.Join(", ", sanitized)}]");
         }
 
-        private static bool ReorderMenuEntries(IList menus, IReadOnlyList<string> desiredOrder)
+        private static bool ReorderMenuEntries(List<object> menus, IReadOnlyList<string> desiredOrder)
         {
-            List<object> currentEntries = menus.Cast<object>().ToList();
+            List<object> currentEntries = menus.ToList();
             List<string> currentOrder = currentEntries.Select(GetMenuName).Where(IsValidTabName).ToList();
             if (AreSameSequence(currentOrder, desiredOrder))
                 return false;
@@ -211,36 +201,36 @@ namespace ModsTabSorter.Controllers
 
         private static bool ReorderTabSelectorEntries(GameplaySetup gameplaySetup, IReadOnlyList<string> desiredOrder)
         {
-            if (gameplaySetup == null || ModsTabField == null || TabsField == null)
+            if (gameplaySetup == null)
                 return false;
 
             TabSelector selector = GetModsTabSelector(gameplaySetup);
             if (selector == null)
                 return false;
 
-            IList tabs = TabsField.GetValue(selector) as IList;
+            List<Tab> tabs = selector.tabs;
             if (tabs == null || tabs.Count == 0)
                 return false;
 
-            List<object> currentTabs = tabs.Cast<object>().ToList();
+            List<Tab> currentTabs = tabs.ToList();
             List<string> currentOrder = currentTabs.Select(GetTabName).Where(IsValidTabName).ToList();
             List<string> selectorOrder = BuildEffectiveOrder(currentOrder, desiredOrder);
             if (AreSameSequence(currentOrder, selectorOrder))
                 return false;
 
-            Dictionary<string, object> byName = currentTabs
+            Dictionary<string, Tab> byName = currentTabs
                 .Where(entry => IsValidTabName(GetTabName(entry)))
                 .GroupBy(GetTabName, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
-            List<object> reorderedTabs = new List<object>(currentTabs.Count);
+            List<Tab> reorderedTabs = new List<Tab>(currentTabs.Count);
             foreach (string tabName in selectorOrder)
             {
-                if (byName.TryGetValue(tabName, out object entry))
+                if (byName.TryGetValue(tabName, out Tab entry))
                     reorderedTabs.Add(entry);
             }
 
-            foreach (object entry in currentTabs)
+            foreach (Tab entry in currentTabs)
             {
                 string tabName = GetTabName(entry);
                 if (!IsValidTabName(tabName) || !selectorOrder.Contains(tabName))
@@ -248,7 +238,7 @@ namespace ModsTabSorter.Controllers
             }
 
             tabs.Clear();
-            foreach (object entry in reorderedTabs)
+            foreach (Tab entry in reorderedTabs)
                 tabs.Add(entry);
 
             return true;
@@ -261,12 +251,11 @@ namespace ModsTabSorter.Controllers
                 TabSelector selector = GetModsTabSelector(gameplaySetup);
                 selector?.Refresh();
 
-                CustomListTableData modsList = ModsListField?.GetValue(gameplaySetup) as CustomListTableData;
+                CustomListTableData modsList = gameplaySetup?.modsList;
                 if (modsList?.tableView != null)
                 {
-                    object tableView = modsList.tableView;
-                    tableView.GetType().GetMethod("ReloadData", Type.EmptyTypes)?.Invoke(tableView, null);
-                    tableView.GetType().GetMethod("RefreshContentSize", Type.EmptyTypes)?.Invoke(tableView, null);
+                    modsList.tableView.ReloadData();
+                    modsList.tableView.RefreshContentSize();
                 }
             }
             catch (Exception ex)
@@ -277,7 +266,7 @@ namespace ModsTabSorter.Controllers
 
         private static TabSelector GetModsTabSelector(GameplaySetup gameplaySetup)
         {
-            Transform modsTab = ModsTabField?.GetValue(gameplaySetup) as Transform;
+            Transform modsTab = gameplaySetup?.modsTab;
             if (modsTab == null)
                 return null;
 
